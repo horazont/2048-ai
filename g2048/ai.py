@@ -29,7 +29,7 @@ class RandomNode:
         try:
             return scores.pop()
         except IndexError:
-            return (None, None)
+            return (None, None, None)
 
     def get_move_node(self, move):
         return self.children.get(move, None)
@@ -97,7 +97,8 @@ class MoveNode:
     def get_score(self):
         scores = [(score, child.weight)
                   for (score, _, _), child in ((child.find_best_move(), child)
-                                               for child in self.children)]
+                                               for child in self.children)
+		  if score is not None]
         total_weight = sum(weight
                            for _, weight in scores)
         score = self.reward + sum(
