@@ -66,13 +66,6 @@ class RandomNode:
 
         return minv, vsum/count, maxv
 
-
-class GameOverNode(RandomNode):
-    def __init__(self, probability, result_board):
-        super().__init__()
-        self.reward = GAME_OVER_REWARD
-        self.is_game_over = True
-
 class MoveNode:
     def __init__(self, move, result_board, actions):
         self.result_board = result_board
@@ -110,10 +103,7 @@ class MoveNode:
     def new_child(self, probability, new_board):
         # if self.get_node_by_board(new_board) is not None:
         #     raise ValueError("Board already there")
-        if new_board.game_over():
-            new_node = GameOverNode(probability, new_board)
-        else:
-            new_node = RandomNode(probability, new_board)
+        new_node = RandomNode(probability, new_board)
         self.children.append(new_node)
         return new_node
 
@@ -217,13 +207,12 @@ class AI:
             #                      " ".join(map(repr, options2)),
             #                      " ".join(map(repr, options4))) from None
 
-            if child_node.is_game_over:
-                continue
-
             for possible_move in logic.VALID_DIRECTIONS:
                 subchild_node = child_node.new_child(possible_move)
                 if subchild_node is not None:
                     self.deep_analyze(subchild_node, depth=depth+1)
+            if not child_node.children:
+                child_node.reward = GAME_OVER_REWARD
 
 
     def analyze(self, board):
