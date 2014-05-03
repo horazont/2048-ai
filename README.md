@@ -39,7 +39,7 @@ To let the Python AI play a game:
 To let the C++ AI play a game (requires that you have compiled the C++ AI
 before):
 
-    python3 -m g2048 --ai --ai-command ./2048++
+    python3 -m g2048 --ai --ai-command ./2049
 
 AI protocol
 -----------
