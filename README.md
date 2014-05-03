@@ -12,6 +12,7 @@ Dependencies
 
 * python3 (≥ 3.3)
 * python3-urwid
+* python3-numpy
 
 Compiling (the C++ AI)
 ----------------------
