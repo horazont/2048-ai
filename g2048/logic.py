@@ -65,6 +65,10 @@ class GameBoard:
             next(iter(self.free_fields()))
         except StopIteration:
             return False
+        for direction in VALID_DIRECTIONS:
+            if self.test_shift(direction):
+                return False
+        return True
 
     @classmethod
     def shift_array(cls, arr):
