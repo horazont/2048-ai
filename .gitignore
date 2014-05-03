@@ -1,0 +1,10 @@
+__pycache__
+*~
+.#*
+.emacs.desktop*
+2048++
+CMakeCache.txt
+CMakeFiles
+Makefile
+ai.log
+cmake_install.cmake
