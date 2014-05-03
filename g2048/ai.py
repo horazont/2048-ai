@@ -143,7 +143,10 @@ class AI:
         self._cache = node
         logger.info("analyze took %f seconds",
                      time.time() - start_time)
-        game.shift(move)
+        if move is None:
+            logger.warn("out of valid moves :(")
+        else:
+            game.shift(move)
 
     def deep_analyze(self, move_node, depth=0, pool=None):
         if depth > self.max_tree_depth:
