@@ -80,6 +80,8 @@ public:
         return result;
     };
 
+    score_t gradient_score() const;
+
 };
 
 class RandomNode;
@@ -119,6 +121,7 @@ public:
         std::unique_ptr<GameBoard> child_board(new GameBoard(*result_board));
         score_t score = 0;
         child_board->shift(dir, &score);
+        score += child_board->gradient_score();
         if (child_board->rows == result_board->rows) {
             return nullptr;
         }
@@ -175,7 +178,7 @@ typedef std::tuple<score_t, bool> AnalyzeResult;
 
 class AI {
 public:
-    explicit AI(size_t max_tree_depth = 1,
+    explicit AI(size_t max_tree_depth = 4,
                 float min_fill = 1.0,
                 float min_fill_decay_per_level = 0.25,
                 size_t min_new_nodes = 2,

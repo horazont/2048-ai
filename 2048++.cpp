@@ -61,6 +61,31 @@ GameBoard::GameBoard(const RawBoard &board):
 
 }
 
+score_t GameBoard::gradient_score() const
+{
+    score_t score = 0;
+    for (auto &row: rows) {
+        for (size_t x = 1; x < board_size; x++) {
+            int diff = (int)row[x-1] - (int)row[x];
+            if (diff > 0) {
+                score += 1;
+            } else if (diff < 0) {
+                score += diff * 3 - (board_size-x)*8;
+
+            }
+        }
+    }
+    // for (size_t x = 0; x < board_size; x++) {
+    //     for (size_t y = 1; y < board_size; y++) {
+    //         int diff = (int)rows[y-1][x] - (int)rows[y][x];
+    //         if (diff > 0) {
+    //             score += 1;
+    //         }
+    //     }
+    // }
+    return score;
+}
+
 GameBoard &GameBoard::shift(Direction dir, score_t *score)
 {
     std::array<std::array<cell_value_t*, board_size>, board_size> views{0};
