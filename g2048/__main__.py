@@ -4,6 +4,7 @@ import os
 
 import g2048.logic
 import g2048.ai
+import g2048.pipe_ai
 import g2048.urwid_frontend
 
 parser = argparse.ArgumentParser()
@@ -12,6 +13,11 @@ parser.add_argument(
     default=False,
     action="store_true",
     help="Run with AI instead of user input")
+parser.add_argument(
+    "--ai-command",
+    nargs="+",
+    default=None,
+    help="Use the stdio AI provided instead of builtin")
 parser.add_argument(
     "--profile",
     default=False,
@@ -32,9 +38,14 @@ game = g2048.logic.Game()
 game.new_game()
 frontend = g2048.urwid_frontend.UrwidFrontend(game)
 if args.ai:
+    if args.ai_command:
+        ai = g2048.pipe_ai.SubprocessAI(args.ai_command)
+    else:
+        ai = g2048.ai.AI()
+
     g2048.urwid_frontend.UrwidAIController(
         frontend,
-        g2048.ai.AI(),
+        ai,
         interval=0.1)
 else:
     g2048.urwid_frontend.UrwidController(frontend)
