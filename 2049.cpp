@@ -1,14 +1,20 @@
 #include "2049.hpp"
 
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 
 static std::random_device rd;
 static std::independent_bits_engine<std::random_device,
                                     64,
                                     uint64_t> indepbits;
+
+static std::ofstream logfile;
+
+typedef std::chrono::steady_clock default_clock;
 
 /* free functions */
 
@@ -170,6 +176,24 @@ RandomNode::RandomNode(score_t score,
 
 }
 
+void RandomNode::aggregate_node_stats(TreeStats &stats) const
+{
+    stats.random_node_count++;
+    for (auto &child: children) {
+        if (child) {
+            child->aggregate_node_stats(stats);
+        }
+    }
+}
+
+TreeStats RandomNode::collect_tree_stats() const
+{
+    TreeStats stats{0, 0, 0, 0, 0, 0};
+    aggregate_node_stats(stats);
+    stats.avg_move_score = ((double)stats.total_move_score) / stats.move_node_count;
+    return stats;
+}
+
 Direction RandomNode::find_best_move() const
 {
     Direction move;
@@ -217,6 +241,17 @@ bool RandomNode::has_children() const
 }
 
 /* MoveNode */
+
+void MoveNode::aggregate_node_stats(TreeStats &stats) const
+{
+    stats.move_node_count++;
+    stats.min_move_score = std::min(stats.min_move_score, score);
+    stats.max_move_score = std::max(stats.max_move_score, score);
+    stats.total_move_score += score;
+    for (auto &child: children) {
+        child->aggregate_node_stats(stats);
+    }
+}
 
 RandomNodePtr MoveNode::extract_node_by_board(const GameBoard &board)
 {
@@ -274,6 +309,7 @@ AI::AI(size_t max_tree_depth,
     _min_fill_decay_per_level(min_fill_decay_per_level),
     _min_new_nodes(min_new_nodes),
     _revisit_share(revisit_share),
+    _move_count(),
     _cache()
 {
 
@@ -282,7 +318,14 @@ AI::AI(size_t max_tree_depth,
 AnalyzeResult AI::actuate(const RawBoard &current_board)
 {
     std::unique_ptr<GameBoard> board(new GameBoard(current_board));
+    default_clock::time_point start = default_clock::now();
     AnalyzeResult move = analyze(std::move(board));
+    std::chrono::duration<double> elapsed = default_clock::now() - start;
+    logfile << "ai [move=" << (_move_count+1) << "]: eval time = "
+            << elapsed.count() << " seconds" << std::endl;
+    if (std::get<1>(move)) {
+        _move_count++;
+    }
     return move;
 }
 
@@ -295,6 +338,9 @@ AnalyzeResult AI::analyze(std::unique_ptr<GameBoard> &&current_board)
 
     if (!root) {
         root = RandomNodePtr(new RandomNode(0, std::move(current_board), 1.0));
+        logfile << "ai [move=" << (_move_count+1) << "]: cache miss" << std::endl;
+    } else {
+        logfile << "ai [move=" << (_move_count+1) << "]: cache hit" << std::endl;
     }
 
     for (unsigned int i = 0; i < 4; i++) {
@@ -314,6 +360,15 @@ AnalyzeResult AI::analyze(std::unique_ptr<GameBoard> &&current_board)
             return std::make_tuple(0, false);
         } else {
             _cache = std::move(root->children[move]);
+            TreeStats stats = root->collect_tree_stats();
+            logfile << "ai [move=" << (_move_count+1) << "]: "<< std::endl
+                    << "  move nodes analyzed : " << stats.move_node_count << std::endl
+                    << "  rnd nodes analyzed  : " << stats.random_node_count << std::endl
+                    << "  min move score      : " << stats.min_move_score << std::endl
+                    << "  avg move score      : " << stats.avg_move_score << std::endl
+                    << "  max move score      : " << stats.max_move_score << std::endl
+                    << "  chosen subtree score: " << score << std::endl;
+
             return std::make_tuple(move, true);
         }
     }
@@ -439,6 +494,12 @@ void read_state(std::istream &is, uint8_t &state)
 
 int main()
 {
+    logfile.open("ai++.log", std::ios_base::out | std::ios_base::trunc);
+    if (!logfile.is_open()) {
+        std::cerr << "ai: cannot open log. terminating." << std::endl;
+        return 1;
+    }
+
     RawBoard board;
     uint8_t state;
     AI ai;

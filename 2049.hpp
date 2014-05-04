@@ -12,6 +12,15 @@ typedef uint8_t cell_value_t;
 typedef std::tuple<size_t, size_t> cell_coord_t;
 typedef int32_t score_t;
 
+struct TreeStats {
+    size_t move_node_count;
+    size_t random_node_count;
+    score_t min_move_score;
+    score_t max_move_score;
+    score_t total_move_score;
+    float avg_move_score;
+};
+
 static constexpr double SCORE_MERGE_BASE = 1.5;
 static constexpr score_t SCORE_GAME_OVER = -1024;
 
@@ -111,6 +120,8 @@ public:
     std::array<MoveNodePtr, 4> children;
 
 public:
+    void aggregate_node_stats(TreeStats &stats) const;
+    TreeStats collect_tree_stats() const;
     Direction find_best_move() const;
     std::tuple<score_t, Direction, MoveNode*> find_best_move_info() const;
     bool has_children() const;
@@ -133,6 +144,7 @@ public:
         children[dir] = std::move(child);
         return children[dir].get();
     }
+
 
 };
 
@@ -167,6 +179,7 @@ public:
     std::vector<RandomNodePtr> children;
 
 public:
+    void aggregate_node_stats(TreeStats &stats) const;
     RandomNodePtr extract_node_by_board(const GameBoard &board);
     score_t find_best_move_info() const;
     RandomNode *new_child(float weight,
@@ -196,6 +209,8 @@ private:
     float _min_fill_decay_per_level;
     size_t _min_new_nodes;
     float _revisit_share;
+
+    uint32_t _move_count;
 
     std::unique_ptr<MoveNode> _cache;
 
