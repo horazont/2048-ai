@@ -30,7 +30,8 @@ score_t shift_line(std::array<cell_value_t*, board_size> &line)
             *line[i-1] += 1;
             *line[i] = 0;
             merged = true;
-            result += round(pow(SCORE_MERGE_BASE, *line[i-1]));
+            // result += round(pow(SCORE_MERGE_BASE, *line[i-1]));
+            result += round((*line[i-1]) * SCORE_MERGE_FACTOR);
         }
         if (*line[i] == 0) {
             bool shifted = false;
@@ -72,12 +73,11 @@ score_t GameBoard::gradient_score() const
     score_t score = 0;
     for (auto &row: rows) {
         for (size_t x = 1; x < board_size; x++) {
-            int diff = (int)row[x-1] - (int)row[x];
-            if (diff > 0) {
+            int diff = (int)row[0] - (int)row[x];
+            if (diff >= 0) {
                 score += 1;
             } else if (diff < 0) {
-                score += diff * 3 - (board_size-x)*8;
-
+                score -= 12;
             }
         }
     }
@@ -278,12 +278,12 @@ score_t MoveNode::find_best_move_info() const
         total_child_score += child->find_best_move();
     }
 
-    score_t result_score = score;
+    double result_score = score;
     if (children.size() > 0) {
-        result_score += ((double)total_child_score)/children.size();
+        result_score += ((double)total_child_score)/max_children;
     }
 
-    return result_score;
+    return round(result_score);
 }
 
 RandomNode *MoveNode::new_child(float weight,

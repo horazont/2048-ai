@@ -21,7 +21,8 @@ struct TreeStats {
     float avg_move_score;
 };
 
-static constexpr double SCORE_MERGE_BASE = 1.5;
+static constexpr double SCORE_MERGE_BASE = 1.9;
+static constexpr double SCORE_MERGE_FACTOR = 1.2;
 static constexpr score_t SCORE_GAME_OVER = -1024;
 
 static constexpr size_t board_size = 4;
