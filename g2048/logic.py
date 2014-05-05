@@ -100,14 +100,22 @@ class GameBoard:
         for y, row in enumerate(board):
             if right:
                 row = row[::-1]
-            yield from cls.translate_horiz(y, cls.shift_array(row))
+            iterator = cls.shift_array(row)
+            if right:
+                yield from cls.translate_horiz(y, cls.translate_reversed(iterator))
+            else:
+                yield from cls.translate_horiz(y, iterator)
 
     @classmethod
     def shift_vert(cls, board, down):
         for x, col in enumerate(board.transpose()):
             if down:
                 col = col[::-1]
-            yield from cls.translate_vert(x, cls.shift_array(col))
+            iterator = cls.shift_array(col)
+            if down:
+                yield from cls.translate_vert(x, cls.translate_reversed(iterator))
+            else:
+                yield from cls.translate_vert(x, iterator)
 
     def shifted(self, direction, actions=[]):
         self._validate_direction(direction)
@@ -128,6 +136,11 @@ class GameBoard:
     def test_shift(self, direction, actions=[]):
         self.shifted(direction, actions=actions)
         return bool(actions)
+
+    @classmethod
+    def translate_reversed(self, iterable):
+        for action, v1, v2 in iterable:
+            yield action, 3-v1, 3-v2
 
     @classmethod
     def translate_horiz(cls, y, input):
@@ -169,6 +182,7 @@ class Game:
         super().__init__()
         self._game_over = True
         self.board = GameBoard(board_size=board_size)
+        self.score = 0
         self.update_event = None
 
     def _call_update(self):
@@ -180,6 +194,7 @@ class Game:
 
     def new_game(self):
         self.game_over = False
+        self.score = 0
         self.board = self.board.cleared(
         ).with_random_tile_placed(
         ).with_random_tile_placed()
@@ -190,6 +205,12 @@ class Game:
         actions = []
         self.board = self.board.shifted(direction, actions=actions)
         if actions:
+            with open("shift", "w") as f:
+                print(str(self.board.board), file=f)
+                for action, p0, p1 in actions:
+                    print("{} {} {}".format(action, p0, p1), file=f)
+                    if action == "merge":
+                        self.score += 2**self.board.board.transpose()[p1]
             self.board = self.board.with_random_tile_placed()
         if self.board.game_over():
             self.game_over = True

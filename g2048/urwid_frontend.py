@@ -103,13 +103,24 @@ class UrwidAIController(UrwidController):
         loop.set_alarm_in(self._interval, self.call_ai)
 
 class UrwidFrontend:
+    @staticmethod
+    def get_score_text(value):
+        return "Score: {:06d}".format(value)
+
     def __init__(self, game):
         self._game = game
         self._board = Board()
-        fill = urwid.AttrMap(
-            urwid.Filler(self._board,
-                         valign="top"),
-            "tile-0")
+        self._score_text = urwid.BigText(
+            self.get_score_text(0),
+            urwid.font.HalfBlock5x4Font())
+        fill = urwid.Filler(
+            urwid.Pile(
+                [urwid.AttrMap(self._board, "tile-0"),
+                 urwid.Padding(
+                     self._score_text,
+                     width='clip')]
+            ),
+            valign="top")
 
         self.unhandled_input = None
         self._screen = urwid.raw_display.Screen()
@@ -136,3 +147,4 @@ class UrwidFrontend:
             for x, c in enumerate(xs):
                 cell_widget = self._board.get_cell(x, y)
                 cell_widget.value = c
+        self._score_text.set_text(self.get_score_text(self._game.score))
