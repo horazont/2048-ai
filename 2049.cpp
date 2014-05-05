@@ -284,15 +284,15 @@ RandomNodePtr MoveNode::extract_node_by_board(const GameBoard &board)
 
 score_t MoveNode::find_best_move_info() const
 {
-    score_t total_child_score = 0;
+    double total_child_score = 0;
     for (auto &child: children)
     {
-        total_child_score += child->find_best_move();
+        total_child_score += child.weight * child->find_best_move();
     }
 
     double result_score = score;
     if (children.size() > 0) {
-        result_score += ((double)total_child_score)/max_children;
+        result_score += total_child_score/max_children;
     }
 
     return round(result_score);
