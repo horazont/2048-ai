@@ -68,33 +68,39 @@ class UrwidController:
     def __init__(self, urwid_frontend):
         self._frontend = urwid_frontend
         self._game = urwid_frontend._game
+
+    def actuate(self, direction):
+        self._game.shift(direction)
+        self._frontend.update()
+
+class UrwidKeyboardController(UrwidController):
+    def __init__(self, urwid_frontend):
+        super().__init__(urwid_frontend)
         self._frontend.unhandled_input = self.unhandled_input
 
     def unhandled_input(self, key):
         if key == 'up':
-            self._game.shift(logic.DIR_UP)
+            self.actuate(logic.DIR_UP)
         elif key == 'down':
-            self._game.shift(logic.DIR_DOWN)
+            self.actuate(logic.DIR_DOWN)
         elif key == 'left':
-            self._game.shift(logic.DIR_LEFT)
+            self.actuate(logic.DIR_LEFT)
         elif key == 'right':
-            self._game.shift(logic.DIR_RIGHT)
+            self.actuate(logic.DIR_RIGHT)
 
-        self._frontend.update()
-
-class UrwidAIController:
+class UrwidAIController(UrwidController):
     def __init__(self, urwid_frontend, ai, interval=0.5):
+        super().__init__(urwid_frontend)
         self._interval = interval
-        self._frontend = urwid_frontend
-        self._game = self._frontend._game
         self._loop = self._frontend._loop
         self._loop.set_alarm_in(interval, self.call_ai)
         self._ai = ai
 
     def call_ai(self, loop, user_data=None):
-        self._ai.actuate(self._game)
+        direction = self._ai.actuate(self._game)
+        if direction is not None:
+            self.actuate(direction)
         loop.set_alarm_in(self._interval, self.call_ai)
-        self._frontend.update()
 
 class UrwidFrontend:
     def __init__(self, game):

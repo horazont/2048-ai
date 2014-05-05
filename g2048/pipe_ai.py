@@ -48,4 +48,4 @@ class SubprocessAI:
             logger.error("Invalid movement code returned: %d",
                          read[0])
             return
-        game.shift(direction)
+        return direction

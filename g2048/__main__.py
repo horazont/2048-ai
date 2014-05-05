@@ -48,7 +48,7 @@ if args.ai:
         ai,
         interval=0.1)
 else:
-    g2048.urwid_frontend.UrwidController(frontend)
+    g2048.urwid_frontend.UrwidKeyboardController(frontend)
 
 def run():
     try:

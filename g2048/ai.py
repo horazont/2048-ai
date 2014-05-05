@@ -146,7 +146,7 @@ class AI:
         if move is None:
             logger.warn("out of valid moves :(")
         else:
-            game.shift(move)
+            return move
 
     def deep_analyze(self, move_node, depth=0, pool=None):
         if depth > self.max_tree_depth:
