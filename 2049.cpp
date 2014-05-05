@@ -82,14 +82,19 @@ score_t GameBoard::gradient_score() const
         }
     }
 
+    float vert_score[2]{0, 0};
     for (size_t x = 0; x < board_size; x++) {
         for (size_t y = 1; y < board_size; y++) {
             int diff = (int)rows[y-1][x] - (int)rows[y][x];
             if (diff > 0) {
-                score += 0.5;
+                vert_score[0] += 0.5;
+            } else if (diff < 0) {
+                vert_score[1] += 0.5;
             }
         }
     }
+
+    score += std::max(vert_score[0], vert_score[1]);
 
     return round(score);
 }
