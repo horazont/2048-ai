@@ -70,7 +70,7 @@ GameBoard::GameBoard(const RawBoard &board):
 
 score_t GameBoard::gradient_score() const
 {
-    score_t score = 0;
+    float score = 0;
     for (auto &row: rows) {
         for (size_t x = 1; x < board_size; x++) {
             int diff = (int)row[0] - (int)row[x];
@@ -81,15 +81,17 @@ score_t GameBoard::gradient_score() const
             }
         }
     }
-    // for (size_t x = 0; x < board_size; x++) {
-    //     for (size_t y = 1; y < board_size; y++) {
-    //         int diff = (int)rows[y-1][x] - (int)rows[y][x];
-    //         if (diff > 0) {
-    //             score += 1;
-    //         }
-    //     }
-    // }
-    return score;
+
+    for (size_t x = 0; x < board_size; x++) {
+        for (size_t y = 1; y < board_size; y++) {
+            int diff = (int)rows[y-1][x] - (int)rows[y][x];
+            if (diff > 0) {
+                score += 0.5;
+            }
+        }
+    }
+
+    return round(score);
 }
 
 GameBoard &GameBoard::shift(Direction dir, score_t *score)
