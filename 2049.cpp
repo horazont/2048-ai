@@ -70,14 +70,19 @@ GameBoard::GameBoard(const RawBoard &board):
 
 score_t GameBoard::gradient_score() const
 {
-    float score = 0;
+    float horiz_score[2]{0,0};
     for (auto &row: rows) {
         for (size_t x = 1; x < board_size; x++) {
             int diff = (int)row[0] - (int)row[x];
-            if (diff >= 0) {
-                score += 1;
+            if (diff > 0) {
+                horiz_score[0] += 1;
+                horiz_score[1] -= 12;
             } else if (diff < 0) {
-                score -= 12;
+                horiz_score[0] -= 12;
+                horiz_score[1] += 1;
+            } else {
+                horiz_score[0] += 1;
+                horiz_score[1] += 1;
             }
         }
     }
@@ -94,9 +99,9 @@ score_t GameBoard::gradient_score() const
         }
     }
 
-    score += std::max(vert_score[0], vert_score[1]);
-
-    return round(score);
+    return round(
+        std::max(horiz_score[0], horiz_score[1])+
+        std::max(vert_score[0], vert_score[1]));
 }
 
 GameBoard &GameBoard::shift(Direction dir, score_t *score)
