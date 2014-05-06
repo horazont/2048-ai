@@ -287,7 +287,7 @@ score_t MoveNode::find_best_move_info() const
     double total_child_score = 0;
     for (auto &child: children)
     {
-        total_child_score += child.weight * child->find_best_move();
+        total_child_score += child->weight * child->find_best_move();
     }
 
     double result_score = score;
