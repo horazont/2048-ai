@@ -159,6 +159,47 @@ impl Board {
     }
 }
 
+struct OptionsIterator<'a> {
+    board: &'a Board,
+    last: Option<(uint, uint)>
+}
+
+impl<'a> OptionsIterator<'a> {
+    fn new(board: &'a Board) -> OptionsIterator<'a> {
+        OptionsIterator { board: board,
+                          last: None }
+    }
+}
+
+impl<'a> Iterator<(uint, uint)> for OptionsIterator<'a> {
+    fn next(&mut self) -> Option<(uint, uint)> {
+        loop {
+            let (nextx, nexty) = match self.last {
+                Some((x, y)) if x == 3 && y < 3 =>
+                    (0, y+1),
+                Some((x, y)) if x == 3 && y == 3 => {
+                    return None;
+                }
+                Some((x, y)) if x < 3 =>
+                    (x+1, y),
+                None =>
+                    (0, 0),
+                Some(_) => {
+                    return None; // invalid state
+                }
+            };
+
+            self.last = Some((nextx, nexty));
+
+            if self.board.cols[nextx][nexty] != 0 {
+                continue;
+            }
+
+            return self.last.clone();
+        }
+    }
+}
+
 impl Eq for Board {
     fn eq(&self, other: &Board) -> bool {
         self.cols.iter().zip(other.cols.iter()).fold(
@@ -192,43 +233,80 @@ fn read_request<FileT: Reader>(src: &mut FileT) -> Result<(Board, u8), io::IoErr
     Ok((Board::from_raw(&raw_board), raw_unused))
 }
 
+struct EvalContext {
+    max_depth: uint
+}
+
 enum MoveEvalResult {
     Valid(Score),
     InvalidMove
 }
 
-fn eval_move(curr_board: &Board, dir: Direction) -> MoveEvalResult {
-    info!("evaluating move {} for board \n{}...\n",
-          dir,
-          *curr_board);
-    let (new_board, move_score) = curr_board.shifted_board(dir);
-    info!("evaluated move. new board: \n{}\n", new_board);
-    if new_board == *curr_board {
-        info!("boards are equal => InvalidMove\n")
-        return InvalidMove;
-    }
-
-    Valid(move_score)
-}
-
 enum BestMove {
-    Found(Score, Direction),
+    Move(Score, Direction),
     NoMove
 }
 
-fn eval_moves(board: &Board) -> BestMove {
-    let mut result: BestMove = NoMove;
-    for move in [Up, Down, Left, Right].iter() {
-        result = match eval_move(board, *move) {
-            Valid(score) => match result {
-                Found(found_score, _) if found_score >= score
-                    => result,
-                _ => Found(score, *move)
-            },
-            InvalidMove => result
+enum IntermediateBestMove  {
+    Found(Score, Direction),
+    DepthExceeded,
+    GameOver
+}
+
+impl EvalContext {
+
+    fn new(max_depth: uint) -> EvalContext {
+        assert!(max_depth >= 1);
+        EvalContext { max_depth: max_depth }
+    }
+
+    fn eval_move(&self, curr_board: &Board,
+                 dir: Direction, depth: uint) -> MoveEvalResult
+    {
+        info!("evaluating move {} for board \n{}...\n",
+              dir,
+              *curr_board);
+        let (new_board, move_score) = curr_board.shifted_board(dir);
+        info!("evaluated move. new board: \n{}\n", new_board);
+        if new_board == *curr_board {
+            info!("boards are equal => InvalidMove\n")
+                return InvalidMove;
+        }
+
+
+
+        let total_score = move_score;
+
+        Valid(total_score)
+    }
+
+    fn eval_moves(&self, board: &Board, depth: uint) -> IntermediateBestMove
+    {
+        if depth > self.max_depth {
+            return DepthExceeded;
+        }
+
+        let mut result: IntermediateBestMove = GameOver;
+        for move in [Up, Down, Left, Right].iter() {
+            result = match self.eval_move(board, *move, depth) {
+                Valid(score) => match result {
+                    Found(found_score, _) if found_score >= score
+                        => result,
+                    _ => Found(score, *move)
+                },
+                InvalidMove => result
+            }
+        }
+        result
+    }
+
+    fn eval(&self, board: &Board) -> BestMove {
+        match self.eval_moves(board, 0) {
+            Found(score, dir) => Move(score, dir),
+            DepthExceeded => fail!("this must not happen"),
+            GameOver => NoMove
         }
     }
-    result
 }
 
 struct LogToFile<'a> {
@@ -268,6 +346,8 @@ fn main() {
 
     log::set_logger(box LogToFile{ f: f });
 
+    let ctx = EvalContext::new(3);
+
     loop {
         let (board, _) = match read_request(&mut io::stdio::stdin_raw())
         {
@@ -279,8 +359,8 @@ fn main() {
 
         info!("received board: {}", board);
 
-        match eval_moves(&board) {
-            Found(score, move) => {
+        match ctx.eval(&board) {
+            Move(score, move) => {
                 info!("evaluated: score={}, move={}\n", score, move as u8);
                 match io::stdio::stdout_raw().write_u8(move as u8) {
                     Ok(x) => x,
