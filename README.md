@@ -14,16 +14,6 @@ Dependencies
 * python3-urwid
 * python3-numpy
 
-Compiling (the C++ AI)
-----------------------
-
-Run cmake:
-
-    cmake .
-
-Run make:
-
-    make
 
 Running
 -------
@@ -36,10 +26,29 @@ To let the Python AI play a game:
 
     python3 -m g2048 --ai
 
-To let the C++ AI play a game (requires that you have compiled the C++ AI
-before):
+Compiling and running the C++ AI
+--------------------------------
 
-    python3 -m g2048 --ai --ai-command ./2049
+Switch into the ``cpp`` directory and run cmake:
+
+    cmake .
+
+Run make:
+
+    make
+
+To let the C++ AI play a game, switch back to the upper directory and run:
+
+    python3 -m g2048 --ai --ai-command cpp/2049
+
+Compiling and running the Rust AI
+---------------------------------
+
+Switch into the ``rust`` directory and run make:
+
+    make run
+
+This requires that you have a recent ``rustc`` in your PATH.
 
 AI protocol
 -----------
