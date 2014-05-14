@@ -190,6 +190,11 @@ impl Board {
         copy
     }
 
+    fn set_tile(&mut self, x: uint, y: uint, tile: u8)
+    {
+        self.cols[x][y] = tile;
+    }
+
     fn shifted_board(&self,
                      dir: Direction) -> (Board, Score) {
         let lines_base = match dir {
@@ -366,7 +371,7 @@ impl EvalContext {
                   dir,
                   *curr_board);
         }
-        let (new_board, move_score) = curr_board.shifted_board(dir);
+        let (mut new_board, move_score) = curr_board.shifted_board(dir);
         if depth == 1 {
             info!("evaluated move. new board: \n{}\n", new_board);
         }
@@ -415,9 +420,9 @@ impl EvalContext {
             while i < to_fill {
                 let &(x, y) = options.get(i);
                 for tilev in [1u8, 2u8].iter() {
-                    let child_board = new_board.place_tile(
-                        x, y, *tilev);
-                    results.push(self.eval_moves(&child_board, depth+1));
+                    new_board.set_tile(x, y, *tilev);
+                    results.push(self.eval_moves(&new_board, depth+1));
+                    new_board.set_tile(x, y, 0);
                 }
                 i += 1;
             }
