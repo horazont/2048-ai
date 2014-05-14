@@ -5,7 +5,6 @@ extern crate sync;
 
 use std::io;
 use std::fmt;
-use std::vec;
 use std::cmp;
 use std::num;
 use rand::Rng;
@@ -133,8 +132,49 @@ impl Board {
     }
 
     fn gradient_score(&self) -> Score {
-        let (horiz_score_a, horiz_score_b) = (0., 0.);
-        let (vert_score_a, vert_score_b) = (0., 0.);
+        let zero_hdiff_score = 1.;
+        let pos_hdiff_score = 1.;
+        let neg_hdiff_score = -12.;
+        let pos_vdiff_score = 0.5;
+
+        let (mut horiz_score_a, mut horiz_score_b) = (0.0f32, 0.0f32);
+        let (mut vert_score_a, mut vert_score_b) = (0.0f32, 0.0f32);
+
+        let mut x = 0;
+        while x < 4 {
+            let mut y = 0;
+            while y < 4 {
+                let horiz_diff = self.cols[0][y] as int - self.cols[x][y] as int;
+                let vert_diff = if y > 0 {
+                    self.cols[x][y-1] as int - self.cols[x][y] as int
+                } else {
+                    0
+                };
+
+                if horiz_diff > 0 {
+                    horiz_score_a += pos_hdiff_score;
+                    horiz_score_b += neg_hdiff_score;
+                } else if horiz_diff < 0 {
+                    horiz_score_a += neg_hdiff_score;
+                    horiz_score_b += pos_hdiff_score;
+                } else {
+                    horiz_score_a += zero_hdiff_score;
+                    horiz_score_b += zero_hdiff_score;
+                };
+
+                if vert_diff > 0 {
+                    vert_score_a += pos_vdiff_score;
+                } else if vert_diff < 0{
+                    vert_score_b += pos_vdiff_score;
+                };
+
+                y += 1;
+            }
+            x += 1;
+        }
+
+        return (horiz_score_a.max(horiz_score_b)+
+                vert_score_a.max(vert_score_b)).round() as Score;
     }
 
     fn shifted_board(&self,
@@ -248,7 +288,7 @@ fn read_request<FileT: Reader>(src: &mut FileT) -> Result<(Board, u8), io::IoErr
 fn shuffle<T: Clone>(dest: &mut Vec<T>)
 {
     let mut i: uint = 0;
-    let mut sl = dest.as_mut_slice();
+    let sl = dest.as_mut_slice();
     while i < sl.len() - 1 {
         let j = rand::task_rng().gen_range(i+1, sl.len());
         let tmp = sl[j].clone();
@@ -326,7 +366,7 @@ impl EvalContext {
             let copied = (*self).clone();
             let mut futures = Vec::from_fn(
                 to_fill,
-                |index| sync::Future::spawn(
+                |_| sync::Future::spawn(
                     proc() {
                         copied.eval_moves(&new_board, depth+1)
                     }));
@@ -349,7 +389,8 @@ impl EvalContext {
                 DepthExceeded => 0
             });
 
-        let total_score = move_score + ((total_child_score as f32) / (results.len() as f32)).round() as Score;
+        let total_score = move_score + new_board.gradient_score() +
+            ((total_child_score as f32) / (results.len() as f32)).round() as Score;
 
         Valid(total_score)
     }
