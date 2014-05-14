@@ -194,7 +194,7 @@ class AI {
 public:
     explicit AI(size_t max_tree_depth = 4,
                 float min_fill = 1.0,
-                float min_fill_decay_per_level = 0.25,
+                float min_fill_decay_per_level = 0.3,
                 size_t min_new_nodes = 2,
                 float revisit_share = 0.26);
     AI(const AI &ref) = delete;

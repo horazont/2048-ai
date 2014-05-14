@@ -118,7 +118,7 @@ class MoveNode:
 
 class AI:
     def __init__(self,
-                 max_tree_depth=3,
+                 max_tree_depth=2,
                  min_fill=0.99,
                  min_fill_decay=90,
                  min_new_nodes=1,
