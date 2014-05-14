@@ -180,6 +180,16 @@ impl Board {
          vert_score_a.max(vert_score_b)).round() as Score
     }
 
+    fn place_tile(&self,
+                  x: uint,
+                  y: uint,
+                  tile: u8) -> Board
+    {
+        let mut copy = self.clone();
+        copy.cols[x][y] = tile;
+        copy
+    }
+
     fn shifted_board(&self,
                      dir: Direction) -> (Board, Score) {
         let lines_base = match dir {
@@ -211,6 +221,15 @@ impl Board {
             Up => Board::from_cols(lines),
             Down => Board::from_cols(lines.iter().map(reversed_line).collect::<Vec<Line>>())
         }, score)
+    }
+}
+
+impl Clone for Board {
+    fn clone(&self) -> Board {
+        Board::from_cols(vec![self.get_col(0),
+                              self.get_col(1),
+                              self.get_col(2),
+                              self.get_col(3)])
     }
 }
 
@@ -372,20 +391,34 @@ impl EvalContext {
 
         let mut results = Vec::new();
         if depth == 1 {
+            let mut futures = Vec::new();
+            let mut i = 0;
             let copied = (*self).clone();
-            let mut futures = Vec::from_fn(
-                to_fill,
-                |_| sync::Future::spawn(
-                    proc() {
-                        copied.eval_moves(&new_board, depth+1)
-                    }));
+            while i < to_fill {
+                let &(x, y) = options.get(i);
+                for tilev in [1u8, 2u8].iter() {
+                    let child_board = new_board.place_tile(
+                        x, y, *tilev);
+                    futures.push(
+                        sync::Future::spawn(
+                            proc() {
+                                copied.eval_moves(&child_board, depth+1)
+                            }));
+                }
+                i += 1;
+            }
             results = Vec::from_fn(
                 futures.len(),
                 |idx| futures.get_mut(idx).get());
         } else {
             let mut i = 0;
             while i < to_fill {
-                results.push(self.eval_moves(&new_board, depth+1));
+                let &(x, y) = options.get(i);
+                for tilev in [1u8, 2u8].iter() {
+                    let child_board = new_board.place_tile(
+                        x, y, *tilev);
+                    results.push(self.eval_moves(&child_board, depth+1));
+                }
                 i += 1;
             }
         }
