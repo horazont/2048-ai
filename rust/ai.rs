@@ -1,16 +1,23 @@
 #![feature(phase)]
 #[phase(syntax, link)] extern crate log;
+#[phase(syntax, link)] extern crate rand;
+extern crate sync;
 
 use std::io;
 use std::fmt;
+use std::vec;
+use std::cmp;
+use std::num;
+use rand::Rng;
 
 type Score = u64;
 type LineView<'r> = [&'r mut u8, ..4];
 type Line = [u8, ..4];
 
 static SCORE_MERGE_FACTOR: f32 = 1.2f32;
+static GAME_OVER_SCORE: Score = -2048;
 
-#[deriving(Show)]
+#[deriving(Show, Clone)]
 enum Direction {
     Up = 0,
     Down = 1,
@@ -125,6 +132,11 @@ impl Board {
         [self.cols[idx][0], self.cols[idx][1], self.cols[idx][2], self.cols[idx][3]]
     }
 
+    fn gradient_score(&self) -> Score {
+        let (horiz_score_a, horiz_score_b) = (0., 0.);
+        let (vert_score_a, vert_score_b) = (0., 0.);
+    }
+
     fn shifted_board(&self,
                      dir: Direction) -> (Board, Score) {
         let lines_base = match dir {
@@ -233,8 +245,25 @@ fn read_request<FileT: Reader>(src: &mut FileT) -> Result<(Board, u8), io::IoErr
     Ok((Board::from_raw(&raw_board), raw_unused))
 }
 
+fn shuffle<T: Clone>(dest: &mut Vec<T>)
+{
+    let mut i: uint = 0;
+    let mut sl = dest.as_mut_slice();
+    while i < sl.len() - 1 {
+        let j = rand::task_rng().gen_range(i+1, sl.len());
+        let tmp = sl[j].clone();
+        sl[j] = sl[i].clone();
+        sl[i] = tmp;
+        i += 1;
+    }
+}
+
+#[deriving(Clone)]
 struct EvalContext {
-    max_depth: uint
+    max_depth: uint,
+    min_fill: f32,
+    min_fill_decay_per_level: f32,
+    min_new_nodes: uint
 }
 
 enum MoveEvalResult {
@@ -247,6 +276,7 @@ enum BestMove {
     NoMove
 }
 
+#[deriving(Clone)]
 enum IntermediateBestMove  {
     Found(Score, Direction),
     DepthExceeded,
@@ -255,9 +285,15 @@ enum IntermediateBestMove  {
 
 impl EvalContext {
 
-    fn new(max_depth: uint) -> EvalContext {
+    fn new(max_depth: uint,
+           min_fill: f32,
+           min_fill_decay_per_level: f32,
+           min_new_nodes: uint) -> EvalContext {
         assert!(max_depth >= 1);
-        EvalContext { max_depth: max_depth }
+        EvalContext { max_depth: max_depth,
+                      min_fill: min_fill,
+                      min_fill_decay_per_level: min_fill_decay_per_level,
+                      min_new_nodes : min_new_nodes }
     }
 
     fn eval_move(&self, curr_board: &Board,
@@ -273,9 +309,47 @@ impl EvalContext {
                 return InvalidMove;
         }
 
+        let mut options = OptionsIterator::new(&new_board).collect::<Vec<(uint, uint)>>();
+        shuffle(&mut options);
 
+        let fill = self.min_fill * num::pow(self.min_fill_decay_per_level,
+                                            (depth-1));
 
-        let total_score = move_score;
+        let to_fill = cmp::min(
+            cmp::max(
+                ((fill*16.).round() as uint),
+                self.min_new_nodes),
+            options.len());
+
+        let mut results = Vec::new();
+        if depth == 1 {
+            let copied = (*self).clone();
+            let mut futures = Vec::from_fn(
+                to_fill,
+                |index| sync::Future::spawn(
+                    proc() {
+                        copied.eval_moves(&new_board, depth+1)
+                    }));
+            results = Vec::from_fn(
+                futures.len(),
+                |idx| futures.get_mut(idx).get());
+        } else {
+            let mut i = 0;
+            while i < to_fill {
+                results.push(self.eval_moves(&new_board, depth+1));
+                i += 1;
+            }
+        }
+
+        let total_child_score = results.iter().fold(
+            0,
+            |prev, curr| prev + match *curr {
+                Found(new_score, _) => new_score,
+                GameOver => GAME_OVER_SCORE,
+                DepthExceeded => 0
+            });
+
+        let total_score = move_score + ((total_child_score as f32) / (results.len() as f32)).round() as Score;
 
         Valid(total_score)
     }
@@ -301,7 +375,7 @@ impl EvalContext {
     }
 
     fn eval(&self, board: &Board) -> BestMove {
-        match self.eval_moves(board, 0) {
+        match self.eval_moves(board, 1) {
             Found(score, dir) => Move(score, dir),
             DepthExceeded => fail!("this must not happen"),
             GameOver => NoMove
@@ -346,7 +420,11 @@ fn main() {
 
     log::set_logger(box LogToFile{ f: f });
 
-    let ctx = EvalContext::new(3);
+    let ctx = EvalContext::new(
+        5,
+        1.0,
+        0.7,
+        2);
 
     loop {
         let (board, _) = match read_request(&mut io::stdio::stdin_raw())
