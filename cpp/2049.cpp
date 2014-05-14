@@ -70,7 +70,7 @@ GameBoard::GameBoard(const RawBoard &board):
 
 score_t GameBoard::gradient_score() const
 {
-    float horiz_score[2]{0,0};
+    float horiz_score[2]{0, 0};
     for (auto &row: rows) {
         for (size_t x = 1; x < board_size; x++) {
             int diff = (int)row[0] - (int)row[x];
