@@ -9,7 +9,7 @@ use std::cmp;
 use std::num;
 use rand::Rng;
 
-type Score = u64;
+type Score = i64;
 type LineView<'r> = [&'r mut u8, ..4];
 type Line = [u8, ..4];
 
@@ -29,8 +29,8 @@ struct Board {
     cols: [[u8, ..4], ..4]
 }
 
-fn shift_line(line: &mut Line) -> u64 {
-    let mut result: u64 = 0;
+fn shift_line(line: &mut Line) -> Score {
+    let mut result: Score = 0;
     let mut i = 0;
     while i < line.len() {
         let mut merged = false;
@@ -41,7 +41,7 @@ fn shift_line(line: &mut Line) -> u64 {
             line[i-1] += 1;
             line[i] = 0;
             merged = true;
-            result += line[i-1] as u64;
+            result += line[i-1] as Score;
         }
         if line[i] == 0 {
             let mut shifted = false;
@@ -63,7 +63,7 @@ fn shift_line(line: &mut Line) -> u64 {
         }
     }
 
-    (result as f32 * SCORE_MERGE_FACTOR).round() as u64
+    (result as f32 * SCORE_MERGE_FACTOR).round() as Score
 }
 
 fn reversed_line(line: &Line) -> Line {
@@ -144,27 +144,30 @@ impl Board {
         while x < 4 {
             let mut y = 0;
             while y < 4 {
-                let horiz_diff = self.cols[0][y] as int - self.cols[x][y] as int;
+                let horiz_diff_a = self.cols[0][y] as int - self.cols[x][y] as int;
+                let horiz_diff_b = self.cols[3][y] as int - self.cols[x][y] as int;
                 let vert_diff = if y > 0 {
                     self.cols[x][y-1] as int - self.cols[x][y] as int
                 } else {
                     0
                 };
 
-                if horiz_diff > 0 {
-                    horiz_score_a += pos_hdiff_score;
-                    horiz_score_b += neg_hdiff_score;
-                } else if horiz_diff < 0 {
-                    horiz_score_a += neg_hdiff_score;
-                    horiz_score_b += pos_hdiff_score;
-                } else {
-                    horiz_score_a += zero_hdiff_score;
-                    horiz_score_b += zero_hdiff_score;
+                horiz_score_a += match horiz_diff_a {
+                    diff if diff > 0 => pos_hdiff_score,
+                    diff if diff < 0 => neg_hdiff_score,
+                    _ => zero_hdiff_score
                 };
+
+                horiz_score_b += match horiz_diff_b {
+                    diff if diff > 0 => pos_hdiff_score,
+                    diff if diff < 0 => neg_hdiff_score,
+                    _ => zero_hdiff_score
+                };
+
 
                 if vert_diff > 0 {
                     vert_score_a += pos_vdiff_score;
-                } else if vert_diff < 0{
+                } else if vert_diff < 0 {
                     vert_score_b += pos_vdiff_score;
                 };
 
@@ -173,8 +176,8 @@ impl Board {
             x += 1;
         }
 
-        return (horiz_score_a.max(horiz_score_b)+
-                vert_score_a.max(vert_score_b)).round() as Score;
+        (horiz_score_a.max(horiz_score_b)+
+         vert_score_a.max(vert_score_b)).round() as Score
     }
 
     fn shifted_board(&self,
@@ -339,14 +342,20 @@ impl EvalContext {
     fn eval_move(&self, curr_board: &Board,
                  dir: Direction, depth: uint) -> MoveEvalResult
     {
-        info!("evaluating move {} for board \n{}...\n",
-              dir,
-              *curr_board);
+        if depth == 1 {
+            info!("evaluating move {} for board \n{}...\n",
+                  dir,
+                  *curr_board);
+        }
         let (new_board, move_score) = curr_board.shifted_board(dir);
-        info!("evaluated move. new board: \n{}\n", new_board);
+        if depth == 1 {
+            info!("evaluated move. new board: \n{}\n", new_board);
+        }
         if new_board == *curr_board {
-            info!("boards are equal => InvalidMove\n")
-                return InvalidMove;
+            if depth == 1 {
+                info!("boards are equal => InvalidMove\n");
+            }
+            return InvalidMove;
         }
 
         let mut options = OptionsIterator::new(&new_board).collect::<Vec<(uint, uint)>>();
@@ -389,8 +398,16 @@ impl EvalContext {
                 DepthExceeded => 0
             });
 
+        if depth == 1 {
+            info!("gradient score: {}\n", new_board.gradient_score());
+        }
+
         let total_score = move_score + new_board.gradient_score() +
             ((total_child_score as f32) / (results.len() as f32)).round() as Score;
+
+        if depth == 1 {
+            info!("total score: {}\n", total_score);
+        }
 
         Valid(total_score)
     }
