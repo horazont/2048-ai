@@ -133,7 +133,7 @@ class AI:
         self._cache = None
 
     def actuate(self, game):
-        if game.game_over:
+        if game.board.game_over():
             game.new_game()
             self.clear_cache()
             return
