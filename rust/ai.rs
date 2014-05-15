@@ -303,6 +303,14 @@ impl Board {
                 |prev, curr| prev + *curr as Score))
     }
 
+    fn total_value_exp(&self) -> Score {
+        self.cols.iter().fold(
+            0,
+            |prev, col| prev + col.iter().fold(
+                0,
+                |prev, curr| prev + num::pow(2, *curr as uint) as Score))
+    }
+
     fn total_nonzeros(&self) -> uint {
         self.cols.iter().fold(
             0,
@@ -602,6 +610,7 @@ fn main() {
 
     log::set_logger(box LogToFile{ f: f });
 
+    let min_max_depth = 2;
     let max_max_depth = 7;
     let default_max_depth = 5;
 
@@ -622,14 +631,28 @@ fn main() {
 
         info!("received board: {}", board);
 
-        ctx.max_depth = match (board.total_value(), board.total_nonzeros()) {
-            (value, nonzeros) if value > 6 && nonzeros <= 12 => default_max_depth,
-            (value, nonzeros) if value > 6 && nonzeros > 12 => max_max_depth,
-            (_, nonzeros) if nonzeros < 4 => 3,
-            (_, nonzeros) if nonzeros < 6 => 4,
-            (_, nonzeros) if nonzeros > 12 => max_max_depth,
-            (_, nonzeros) if nonzeros > 10 => 2+(((max_max_depth-2) as f32) * 0.75) as uint,
-            (_, _) => default_max_depth
+        let value = board.total_value_exp();
+        let nonzeros = board.total_nonzeros();
+
+        // high value condition: a total of more than 128 definetly requires
+        // attention, independent from the amount of free fields
+        let high_value = value >= 128;
+
+        ctx.max_depth = match (high_value, nonzeros) {
+            (true, nonzeros) if nonzeros >= 10 =>
+                (default_max_depth + max_max_depth) / 2,
+            (true, nonzeros) if nonzeros >= 12 =>
+                max_max_depth,
+            (true, _) => default_max_depth,
+            (false, nonzeros) if nonzeros >= 10 =>
+                (default_max_depth + max_max_depth) / 2,
+            (false, nonzeros) if nonzeros >= 14 =>
+                max_max_depth,
+            (false, nonzeros) if nonzeros < 4 =>
+                min_max_depth,
+            (false, nonzeros) if nonzeros < 6 =>
+                (min_max_depth + min_max_depth + default_max_depth) / 3,
+            (false, _) => default_max_depth
         };
 
         match ctx.eval(&board) {
