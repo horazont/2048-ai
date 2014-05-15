@@ -294,6 +294,25 @@ impl Board {
             Down => Board::from_cols(lines.iter().map(reversed_line).collect::<Vec<Line>>())
         }, score)
     }
+
+    fn total_value(&self) -> Score {
+        self.cols.iter().fold(
+            0,
+            |prev, col| prev + col.iter().fold(
+                0,
+                |prev, curr| prev + *curr as Score))
+    }
+
+    fn total_nonzeros(&self) -> uint {
+        self.cols.iter().fold(
+            0,
+            |prev, col| prev + col.iter().fold(
+                0,
+                |prev, curr| prev + match *curr {
+                    0 => 0,
+                    _ => 1
+                }))
+    }
 }
 
 impl Clone for Board {
@@ -583,10 +602,13 @@ fn main() {
 
     log::set_logger(box LogToFile{ f: f });
 
-    let ctx = EvalContext::new(
+    let max_max_depth = 7;
+    let default_max_depth = 5;
+
+    let mut ctx = EvalContext::new(
         5,
         1.0,
-        0.7,
+        0.6,
         2);
 
     loop {
@@ -599,6 +621,16 @@ fn main() {
         };
 
         info!("received board: {}", board);
+
+        ctx.max_depth = match (board.total_value(), board.total_nonzeros()) {
+            (value, nonzeros) if value > 6 && nonzeros <= 12 => default_max_depth,
+            (value, nonzeros) if value > 6 && nonzeros > 12 => max_max_depth,
+            (_, nonzeros) if nonzeros < 4 => 3,
+            (_, nonzeros) if nonzeros < 6 => 4,
+            (_, nonzeros) if nonzeros > 12 => max_max_depth,
+            (_, nonzeros) if nonzeros > 10 => 2+(((max_max_depth-2) as f32) * 0.75) as uint,
+            (_, _) => default_max_depth
+        };
 
         match ctx.eval(&board) {
             Move(score, move) => {
