@@ -16,6 +16,11 @@ palette = [
     ("tile-9", "black", "white", None, "#000", "#fd5"),
     ("tile-10", "black", "white", None, "#000", "#fc4"),
     ("tile-11", "black", "white", None, "#000", "#fc3"),
+    ("tile-12", "black", "white", None, "black", "white"),
+    ("tile-13", "black", "white", None, "black", "white"),
+    ("tile-14", "black", "white", None, "black", "white"),
+    ("tile-15", "black", "white", None, "black", "white"),
+    ("tile-16", "black", "white", None, "black", "white"),
 ]
 
 class CardWidget(urwid.AttrMap):
