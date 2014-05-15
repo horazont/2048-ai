@@ -24,11 +24,29 @@ enum Direction {
     Right = 3
 }
 
-
+/// A 2048 game board, consisting of 4 times 4 squares. Each slot in
+/// the array holds the log2 of the actual value of the square.
 struct Board {
     cols: [[u8, ..4], ..4]
 }
 
+/// Shift a 2048 line (either horizontal or vertical) towards lower
+/// indicies. Takes a mutable line and returns the merging score
+/// obtained by this move.
+///
+/// Goes through the Line from low to high indicies. On each slot, it
+/// is checked whether the previous slot has the same number as the
+/// current one. If so, the current one is merged with the previous
+/// slot and the current slot is set to zero.
+///
+/// Then, if the current slot is zero, the subsequent slots are
+/// searched for non-zero slots. The first non-zero slot encountered
+/// will be shifted into the current position. If no slots were
+/// shifted or a merge has taken place, the next iteration will deal
+/// with the next slot, otherwise the same slot is inspected again.
+///
+/// Each merge scores with the resulting number times the
+/// SCORE_MERGE_FACTOR.
 fn shift_line(line: &mut Line) -> Score {
     let mut result: Score = 0;
     let mut i = 0;
@@ -66,15 +84,23 @@ fn shift_line(line: &mut Line) -> Score {
     (result as f32 * SCORE_MERGE_FACTOR).round() as Score
 }
 
+/// Reverse a Line and return the result as a copy
 fn reversed_line(line: &Line) -> Line {
     [line[3], line[2], line[1], line[0]]
 }
 
+/// Clone a line
 fn clone_line(line: &Line) -> Line {
     [line[0], line[1], line[2], line[3]]
 }
 
+/// Implementation of the 2048 board
 impl Board {
+
+    /// Create a board from a vector of bytes. Each byte is taken as
+    /// the literal value. The bytes are supposed to be in
+    /// columns-first order (that is, x increments before y
+    /// increments).
     fn from_raw(src: &Vec<u8>) -> Board {
         assert!(src.len() == 16);
 
@@ -95,12 +121,15 @@ impl Board {
         result
     }
 
+    /// Construct a board from a vector of four lines, taken as
+    /// one column each.
     fn from_cols(lines: Vec<Line>) -> Board {
+        assert!(lines.len() == 4);
         let mut result = Board { cols: [[0, ..4], ..4] };
         let mut x = 0;
-        for row in lines.iter() {
+        for col in lines.iter() {
             let mut y = 0;
-            for cell in row.iter() {
+            for cell in col.iter() {
                 result.cols[x][y] = *cell;
                 y += 1;
             }
@@ -109,12 +138,15 @@ impl Board {
         result
     }
 
+    /// Construct a board from a vector of four lines, taken as one
+    /// row each.
     fn from_rows(lines: Vec<Line>) -> Board {
+        assert!(lines.len() == 4);
         let mut result = Board { cols: [[0, ..4], ..4] };
         let mut y = 0;
-        for col in lines.iter() {
+        for row in lines.iter() {
             let mut x = 0;
-            for cell in col.iter() {
+            for cell in row.iter() {
                 result.cols[x][y] = *cell;
                 x += 1;
             }
@@ -123,14 +155,44 @@ impl Board {
         result
     }
 
+    /// Return a Line with the contents of the row with the given
+    /// index.
     fn get_row(&self, idx: uint) -> Line {
         [self.cols[0][idx], self.cols[1][idx], self.cols[2][idx], self.cols[3][idx]]
     }
 
+    /// Return a Line with the contents of the column with the given
+    /// index.
     fn get_col(&self, idx: uint) -> Line {
         [self.cols[idx][0], self.cols[idx][1], self.cols[idx][2], self.cols[idx][3]]
     }
 
+    /// Calculate the AI score for the given constellation. This
+    /// calculates the gradient of the game board and gives back score
+    /// for consistent gradients.
+    ///
+    /// The gradients along the vertical and the horizontal axis are
+    /// scored differently. For each of the axis, two different values
+    /// are calculated, but both using the same scheme. One value is
+    /// taken in the forward and one in the backward direction.
+    ///
+    /// For the horizontal axis, the value of a cell is calculated by
+    /// taking the difference of the corresponding edge cell (same y
+    /// value, but 0 x index). If the difference is greater than or
+    /// equal to zero, a small positive score is applied. Otherwise, a
+    /// larger negative score is applied. The second value uses the
+    /// last (x=3) cell as reference.
+    ///
+    /// For the vertical axis, the score is based on the difference to
+    /// the previous cell (same x, but y-1). For a positive
+    /// difference, a small positive amount is scored. Negative or
+    /// zero differences are not counted. The second value uses the
+    /// reverse direction (comparing to the next cell instead of the
+    /// previous).
+    ///
+    /// Of both axis, the maximum value (taking the sign into account)
+    /// is used. Both are summed together, rounded to the nearest
+    /// integer and returned as score.
     fn gradient_score(&self) -> Score {
         let zero_hdiff_score = 1.;
         let pos_hdiff_score = 1.;
@@ -180,6 +242,8 @@ impl Board {
          vert_score_a.max(vert_score_b)).round() as Score
     }
 
+    /// Return a copy of the board in which the tile at position ``(x,
+    /// y)`` is replaced with the value passed as *tile*.
     fn place_tile(&self,
                   x: uint,
                   y: uint,
@@ -190,11 +254,14 @@ impl Board {
         copy
     }
 
+    /// Set the tile at position ``x, y`` to the value *tile*.
     fn set_tile(&mut self, x: uint, y: uint, tile: u8)
     {
         self.cols[x][y] = tile;
     }
 
+    /// Shift the board in the given direction and return the new
+    /// board, along with the merging score obtained from this move.
     fn shifted_board(&self,
                      dir: Direction) -> (Board, Score) {
         let lines_base = match dir {
